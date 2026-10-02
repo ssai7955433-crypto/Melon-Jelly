@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#e2dfda">
+<title>Melon / Jelly — Material Studies No. 009</title>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #e2dfda;
+    --ink: #292a25;
+    --muted: #77766e;
+    --hairline: rgba(50, 49, 43, .2);
+    --accent: #b64d4b;
+    --panel: rgba(237, 234, 228, .83);
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); }
+  body { min-height: 100svh; overflow: hidden; font-family: var(--sans); }
+  button, input { font: inherit; }
+  button { color: inherit; }
+  #stage { position: fixed; inset: 0; overflow: hidden; background: var(--paper); }
+  #view { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .12;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.88' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.17'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+  .masthead {
+    z-index: 3; position: absolute; top: clamp(24px, 5.1vh, 58px); left: clamp(25px, 5vw, 78px);
+    width: min(430px, 45vw); pointer-events: none;
+  }
+  .eyebrow, .micro-label {
+    margin: 0; color: #69685f; font-size: 9px; font-weight: 650; letter-spacing: .18em;
+    line-height: 1.4; text-transform: uppercase;
+  }
+  h1 {
+    margin: 17px 0 13px; font: italic 500 clamp(47px, 6vw, 82px)/.88 var(--serif);
+    letter-spacing: -.065em;
+  }
+  h1 span { display: block; margin-left: .43em; }
+  .tagline { max-width: 255px; margin: 0; font: 16px/1.35 var(--serif); color: #646158; }
+  .status {
+    z-index: 4; position: absolute; top: 35px; right: clamp(25px, 4vw, 60px);
+    border: 1px solid var(--hairline); border-radius: 99px; padding: 9px 12px 8px;
+    background: rgba(235, 232, 226, .64); color: #585950; font-size: 9px;
+    letter-spacing: .14em; line-height: 1; text-transform: uppercase;
+  }
+  .status::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 0 8px 1px 0; background: #6c896d; }
+  .status.paused::before { background: #b28c4c; }
+  .status.unavailable::before { background: #a75855; }
+  .panel {
+    position: absolute; z-index: 4; top: 50%; right: clamp(22px, 4vw, 62px);
+    transform: translateY(-43%); width: 255px; padding: 17px 18px 16px;
+    border: 1px solid var(--hairline); background: var(--panel); backdrop-filter: blur(12px);
+  }
+  .panel-section { padding: 0 0 15px; margin: 0 0 14px; border-bottom: 1px solid var(--hairline); }
+  .panel-section:last-of-type { padding-bottom: 0; border-bottom: 0; margin-bottom: 11px; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .micro-label { font-size: 8px; letter-spacing: .16em; }
+  .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; border: 1px solid var(--hairline); border-radius: 3px; }
+  .tool-button, .action-button {
+    min-height: 37px; border: 0; border-radius: 2px; background: transparent; cursor: pointer;
+    font-size: 11px; transition: background .2s, color .2s;
+  }
+  .tool-button { display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .tool-button.active { background: var(--ink); color: #f2eee8; }
+  .tool-button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.35; }
+  .varieties { display: flex; gap: 7px; }
+  .variety {
+    display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-height: 34px;
+    padding: 3px 4px; border: 1px solid transparent; background: transparent; cursor: pointer;
+    color: #5d5b53; font-size: 9px;
+  }
+  .variety[aria-pressed="true"] { border-color: var(--hairline); background: rgba(255,255,255,.27); }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--swatch); box-shadow: inset -2px -2px 2px #0002; }
+  .range-row { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 9px; margin: 12px 0 2px; }
+  .range-row label { font-size: 10px; color: #4f4f48; }
+  .range-row output { font-variant-numeric: tabular-nums; color: #7d786e; font-size: 9px; }
+  .range-caption { display: flex; justify-content: space-between; grid-column: 1/-1; margin-top: 3px; color: #858178; font: italic 10px var(--serif); }
+  input[type=range] { grid-column: 1/-1; width: 100%; height: 16px; margin: 5px 0 0; accent-color: var(--accent); cursor: pointer; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .action-button { padding: 0 9px; border: 1px solid var(--hairline); text-align: center; }
+  .action-button.primary { border-color: var(--ink); background: var(--ink); color: #f0ece5; }
+  .action-button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff9f0; }
+  .checks { display: flex; justify-content: space-between; gap: 10px; }
+  .check { display: inline-flex; align-items: center; gap: 6px; color: #605e56; font-size: 9px; cursor: pointer; }
+  input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; margin: 0; }
+  .hint {
+    position: absolute; z-index: 3; left: clamp(25px, 5vw, 78px); bottom: clamp(139px, 17vh, 194px);
+    color: #6c675e; font: italic 15px var(--serif); pointer-events: none;
+  }
+  .readouts {
+    position: absolute; z-index: 3; left: clamp(25px, 5vw, 78px); bottom: clamp(28px, 5vh, 51px);
+    display: flex; align-items: flex-end; gap: clamp(18px, 3vw, 38px);
+  }
+  .metric { min-width: 57px; }
+  .metric-value { display: block; font: 22px/.95 var(--serif); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+  .metric-label { display: block; margin-top: 7px; color: #77736b; font-size: 8px; letter-spacing: .13em; text-transform: uppercase; }
+  .scale-note { position: absolute; z-index: 3; bottom: 13px; left: clamp(25px, 5vw, 78px); margin: 0; color: #89857d; font: italic 10px var(--serif); }
+  .notes {
+    position: absolute; z-index: 4; right: clamp(22px, 4vw, 62px); bottom: 26px; width: 255px;
+    border-top: 1px solid var(--hairline); color: #5e5c55;
+  }
+  .notes summary { display: flex; justify-content: space-between; padding: 10px 0; cursor: pointer; list-style: none; font: italic 14px var(--serif); }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::after { content: "+"; font: 14px var(--sans); color: #827e75; }
+  .notes[open] summary::after { content: "−"; }
+  .notes p { margin: 0 0 10px; font: 12px/1.55 var(--serif); color: #6e6b62; }
+  .toast {
+    position: absolute; z-index: 8; left: 50%; bottom: 19%; transform: translate(-50%, 8px);
+    padding: 10px 15px; border: 1px solid var(--hairline); background: rgba(239,236,230,.94);
+    color: #4f4c45; font: italic 14px var(--serif); opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .guide { position: fixed; z-index: 5; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .guide path { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 5 5; opacity: .83; }
+  .fallback {
+    position: absolute; z-index: 10; inset: 0; display: none; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(226,223,218,.95);
+  }
+  .fallback-card { max-width: 445px; padding: clamp(28px, 5vw, 51px); border: 1px solid var(--hairline); background: rgba(241,238,232,.8); }
+  .fallback-card h2 { margin: 19px 0 12px; font: italic 500 clamp(34px, 6vw, 53px)/1 var(--serif); letter-spacing: -.045em; }
+  .fallback-card p { margin: 0; color: #67645c; font: 15px/1.65 var(--serif); }
+  .fallback-card .micro-label { display: block; }
+  [disabled] { opacity: .48; cursor: not-allowed !important; }
+  @media (max-width: 860px) {
+    body { overflow: auto; }
+    #stage { position: relative; min-height: 100svh; height: auto; overflow: hidden; display: flex; flex-direction: column; padding: 0 22px 25px; }
+    #view { position: fixed; inset: 0; width: 100vw; height: 100svh; min-height: 100svh; }
+    .masthead { position: relative; top: auto; left: auto; width: 100%; padding-top: 30px; }
+    h1 { margin-top: 14px; font-size: clamp(50px, 12vw, 69px); }
+    .tagline { font-size: 15px; }
+    .status { top: 28px; right: 22px; }
+    .canvas-space { height: 58svh; min-height: 360px; max-height: 620px; flex: none; }
+    .hint { position: relative; left: auto; bottom: auto; margin: 0 0 18px; font-size: 15px; }
+    .panel { position: relative; top: auto; right: auto; transform: none; width: 100%; padding: 17px; background: rgba(237,234,228,.9); }
+    .tool-button, .action-button { min-height: 44px; }
+    .variety { min-height: 42px; }
+    .notes { position: relative; right: auto; bottom: auto; width: 100%; margin-top: 16px; }
+    .readouts { position: relative; left: auto; bottom: auto; display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 14px 0 4px; }
+    .metric { min-width: 0; }
+    .metric-value { font-size: 21px; }
+    .scale-note { position: relative; left: auto; bottom: auto; margin: 4px 0 0; }
+    .fallback { position: fixed; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    input[type=range] { accent-color: var(--accent); }
+  }
+</style>
+</head>
+<body>
+<main id="stage">
+  <canvas id="view" aria-label="Interactive WebGPU gummy watermelon material study" tabindex="0"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="masthead">
+    <p class="eyebrow">Material studies / No. 009</p>
+    <h1>Melon /<span>Jelly.</span></h1>
+    <p class="tagline">A small study in sweetness,<br>elasticity, and the lovely<br>resistance of things.</p>
+  </header>
+  <div id="status" class="status unavailable">WebGPU · unavailable</div>
+  <p id="hint" class="hint">Reach in and give the jelly a little pull.</p>
+  <div class="canvas-space" aria-hidden="true"></div>
+  <section class="panel" id="controls" aria-label="Experiment controls">
+    <div class="panel-section">
+      <div class="section-head"><span class="micro-label">Tool</span><span class="micro-label">01 — 02</span></div>
+      <div class="segmented">
+        <button class="tool-button active" id="handTool" aria-pressed="true" title="Hand tool (H)">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5.2 8.5V4.3a1 1 0 0 1 2 0v3.2-4.3a1 1 0 0 1 2 0v4.1-3.1a1 1 0 0 1 2 0v3.2-2a1 1 0 0 1 2 0v5.1c0 3-1.6 4.8-4.7 4.8H8.5c-1.2 0-2.1-.5-2.7-1.4L3.5 10a1 1 0 0 1 1.7-1.1l1.2 1.5"/></svg>Hand
+        </button>
+        <button class="tool-button" id="knifeTool" aria-pressed="false" title="Knife tool (K)">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2 13.8 12.7 3l2.4 2.4L4.4 16.2 2 13.8Z"/><path d="m11.5 4.2 2.4 2.4M3.5 12.3l2.2 2.2"/></svg>Knife
+        </button>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="section-head"><span class="micro-label">Variety</span><span class="micro-label">Sweetness, in colour</span></div>
+      <div class="varieties">
+        <button class="variety" data-variety="crimson" aria-pressed="true"><span class="swatch" style="--swatch:#bb3f47"></span>Crimson</button>
+        <button class="variety" data-variety="golden" aria-pressed="false"><span class="swatch" style="--swatch:#e0a843"></span>Golden</button>
+        <button class="variety" data-variety="rose" aria-pressed="false"><span class="swatch" style="--swatch:#cd7378"></span>Rosé</button>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="range-row">
+        <label for="firmness">Firmness</label><output id="firmValue">58</output>
+        <input id="firmness" type="range" min="0" max="100" value="58">
+        <div class="range-caption"><span>trembling</span><span>set</span></div>
+      </div>
+      <div class="range-row">
+        <label for="damping">Internal damping</label><output id="dampValue">34</output>
+        <input id="damping" type="range" min="0" max="100" value="34">
+        <div class="range-caption"><span>lively</span><span>syrupy</span></div>
+      </div>
+    </div>
+    <div class="panel-section actions">
+      <button class="action-button primary" id="nudge">Give it a nudge</button>
+      <button class="action-button" id="reset">Reset</button>
+      <button class="action-button" id="pause">Pause</button>
+      <span></span>
+    </div>
+    <div class="checks">
+      <label class="check"><input id="quarter" type="checkbox">¼ speed</label>
+      <label class="check"><input id="meshToggle" type="checkbox">Show mesh</label>
+    </div>
+  </section>
+  <section class="readouts" aria-label="Live specimen readouts">
+    <div class="metric"><span class="metric-value" id="mass">≈ 0</span><span class="metric-label">Mass · g</span></div>
+    <div class="metric"><span class="metric-value" id="volume">100</span><span class="metric-label">Volume · % rest</span></div>
+    <div class="metric"><span class="metric-value" id="energy">0.0</span><span class="metric-label">Kinetic · µJ</span></div>
+    <div class="metric"><span class="metric-value" id="pieces">1</span><span class="metric-label">Pieces</span></div>
+  </section>
+  <p class="scale-note">Illustrative scale · 1 sim unit ≈ 3.5 cm · gummy 1.3 g/cm³</p>
+  <details class="notes">
+    <summary>Inside the experiment</summary>
+    <p>The jelly is a little spring lattice: each point remembers where its neighbours belong, while gravity and your hand keep asking it to move. Damping decides how much of that motion is absorbed.</p>
+    <p>Light travels through a softly shaded, layered surface. The knife follows your drawn line; on release, a clean cross-section becomes two independently wobbly pieces. This is a playful material study, not a kitchen simulator.</p>
+  </details>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <svg class="guide" aria-hidden="true"><path id="guidePath" d=""></path></svg>
+  <section id="fallback" class="fallback" aria-live="polite">
+    <div class="fallback-card">
+      <span class="micro-label">Material studies / No. 009</span>
+      <h2>This specimen needs WebGPU.</h2>
+      <p id="fallbackReason">This browser or device does not provide the WebGPU graphics API required for the experiment. Try a current WebGPU-enabled browser on a compatible device; the controls stay disabled until a GPU adapter is available.</p>
+    </div>
+  </section>
+</main>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const canvas = $("view"), controls = $("controls"), statusPill = $("status");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const V = {
+  crimson: { flesh: [0.74, 0.105, 0.16], inner: [0.96, 0.36, 0.38], rind: [0.10, 0.31, 0.18], band: [0.73, 0.79, 0.49], seed: [0.045,0.026,0.034], accent: "#b64d4b" },
+  golden: { flesh: [0.91, 0.56, 0.10], inner: [1.0, 0.81, 0.31], rind: [0.23, 0.37, 0.12], band: [0.81, 0.82, 0.49], seed: [0.12,0.08,0.045], accent: "#a8782f" },
+  rose: { flesh: [0.79, 0.32, 0.38], inner: [0.98, 0.58, 0.59], rind: [0.15, 0.32, 0.22], band: [0.79, 0.79, 0.63], seed: [0.08,0.04,0.055], accent: "#ac6670" }
+};
+const sim = { pieces: [], tool: "hand", paused: false, slow: false, firmness: .58, damping: .34, variety: "crimson", showMesh: false, cut: null, time: 0, step: 1/60, accumulator: 0, dropped: 0 };
+const camera = { yaw: -.28, pitch: 1.04, distance: 4.9, target: [1.35,0,0], dragging: false, lastX: 0, lastY: 0, follow: 0 };
+let device, context, format, pipeline, renderBindGroup, uniformBuffer, depthTexture, msaaTexture, msaaView, gpuReady=false, rebuilds=0;
+let lastFrame=0, toastTimer=0, drawing=false, strokeStart=null, strokeNow=null, knifeStart=null, pointerHeld=null, knifePose={x:0,y:0,angle:0,z:.8,visible:false};
+const targetFps = 1/60;
+
+const add = (a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const sub = (a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const mul = (a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=(a)=>{const d=Math.hypot(...a)||1;return mul(a,1/d)};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const VSHADER = `
+struct U { vp: mat4x4<f32>, eye: vec4<f32>, time: vec4<f32> };
+@group(0) @binding(0) var<uniform> u: U;
+struct In { @location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec4<f32> };
+struct Out { @builtin(position) clip: vec4<f32>, @location(0) world: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec4<f32> };
+@vertex fn vsMain(input: In) -> Out {
+  var o: Out;
+  o.clip = u.vp * vec4<f32>(input.pos, 1.0);
+  o.world = input.pos; o.normal = input.normal; o.color = input.color;
+  return o;
+}`;
+const FSHADER = `
+struct FragmentIn { @builtin(position) clip: vec4<f32>, @location(0) world: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec4<f32> };
+@fragment fn fsMain(input: FragmentIn) -> @location(0) vec4<f32> {
+  let n = normalize(input.normal);
+  let l = normalize(vec3<f32>(-0.55, -0.45, 0.72));
+  let v = normalize(u.eye.xyz - input.world);
+  let h = normalize(l + v);
+  let diffuse = max(dot(n,l), 0.0);
+  let fresnel = pow(1.0 - max(dot(n,v), 0.0), 5.0);
+  let gloss = pow(max(dot(n,h), 0.0), select(26.0, 90.0, input.color.a > 0.7));
+  let light = 0.36 + diffuse * 0.72;
+  let sheen = gloss * 0.52 + fresnel * 0.18;
+  let warmth = 0.035 * max(0.0, 1.0 - abs(input.world.z) * 1.2);
+  let c = input.color.rgb * light + vec3<f32>(sheen + warmth);
+  return vec4<f32>(c, 1.0);
+}`;
+const shader = `${VSHADER}\n${FSHADER}`;
+function mat4Perspective(fovy, aspect, near, far) {
+  const f=1/Math.tan(fovy/2), nf=1/(near-far);
+  return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,far*nf,-1,0,0,far*near*nf,0]);
+}
+function mat4Look(eye, center, up) {
+  const z=norm(sub(eye,center)), x=norm(cross(up,z)), y=cross(z,x);
+  return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);
+}
+function mat4Mul(a,b) {
+  const o=new Float32Array(16);
+  for(let c=0;c<4;c++) for(let r=0;r<4;r++) o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
+  return o;
+}
+function cameraState() {
+  const cp=Math.cos(camera.pitch), sp=Math.sin(camera.pitch), cy=Math.cos(camera.yaw), sy=Math.sin(camera.yaw);
+  const dir=[sy*cp,-cy*cp,sp], eye=add(camera.target,mul(dir,camera.distance));
+  const view=mat4Look(eye,camera.target,[0,0,1]);
+  const aspect=canvas.width/Math.max(1,canvas.height);
+  const proj=mat4Perspective(.69,aspect,.08,100);
+  return {vp:mat4Mul(proj,view),eye};
+}
+function makeGpuBuffer(data, usage) {
+  const b=device.createBuffer({size:Math.max(4,(data.byteLength+3)&~3),usage,mappedAtCreation:true});
+  new Uint8Array(b.getMappedRange()).set(new Uint8Array(data.buffer,data.byteOffset,data.byteLength)); b.unmap(); return b;
+}
+function createMesh(vertices, indices, dynamic=false) {
+  const data=vertices instanceof Float32Array?vertices:new Float32Array(vertices);
+  const ix=indices instanceof Uint32Array?indices:new Uint32Array(indices);
+  return {
+    buffer:device?makeGpuBuffer(data,GPUBufferUsage.VERTEX|(dynamic?GPUBufferUsage.COPY_DST:0)):null,
+    index:device?makeGpuBuffer(ix,GPUBufferUsage.INDEX):null,
+    count:ix.length,capacity:data.length*4,cpu:data,indices:ix,dynamic,gpuDevice:device||null
+  };
+}
+const stride=10;
+function meshVertices(mesh) { return mesh.cpu; }
+function setMeshData(mesh,data) {
+  mesh.cpu=data;
+  if(!device)return;
+  if(mesh.gpuDevice!==device) {
+    mesh.buffer=makeGpuBuffer(data,GPUBufferUsage.VERTEX|(mesh.dynamic?GPUBufferUsage.COPY_DST:0));
+    mesh.index=makeGpuBuffer(mesh.indices,GPUBufferUsage.INDEX);
+    mesh.capacity=data.length*4;mesh.gpuDevice=device;
+    return;
+  }
+  if(data.length*4>mesh.capacity) {
+    mesh.buffer.destroy(); mesh.capacity=Math.max(data.length*4,mesh.capacity*2);
+    mesh.buffer=device.createBuffer({size:(mesh.capacity+3)&~3,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
+  }
+  device.queue.writeBuffer(mesh.buffer,0,data.buffer,data.byteOffset,data.byteLength);
+}
+async function createPipelines() {
+  const module=device.createShaderModule({code:shader});
+  const info=await module.getCompilationInfo();
+  const errors=info.messages.filter((m)=>m.type==="error");
+  if(errors.length) throw new Error("WGSL compilation failed:\n"+errors.map((m)=>`Line ${m.lineNum}: ${m.message}`).join("\n"));
+  const bindGroupLayout=device.createBindGroupLayout({
+    entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:"uniform"}}]
+  });
+  const layout=device.createPipelineLayout({bindGroupLayouts:[bindGroupLayout]});
+  uniformBuffer=device.createBuffer({size:96,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+  const vertexBuffers=[{arrayStride:stride*4,attributes:[
+    {shaderLocation:0,offset:0,format:"float32x3"},
+    {shaderLocation:1,offset:12,format:"float32x3"},
+    {shaderLocation:2,offset:24,format:"float32x4"}
+  ]}];
+  pipeline=device.createRenderPipeline({
+    layout, vertex:{module,entryPoint:"vsMain",buffers:vertexBuffers},
+    fragment:{module,entryPoint:"fsMain",targets:[{format,blend:{color:{srcFactor:"one",dstFactor:"one-minus-src-alpha",operation:"add"},alpha:{srcFactor:"one",dstFactor:"one-minus-src-alpha",operation:"add"}}}]},
+    primitive:{topology:"triangle-list",frontFace:"ccw",cullMode:"back"},
+    depthStencil:{format:"depth24plus",depthWriteEnabled:true,depthCompare:"less"},
+    multisample:{count:4}
+  });
+  renderBindGroup=device.createBindGroup({layout:bindGroupLayout,entries:[{binding:0,resource:{buffer:uniformBuffer}}]});
+}
+function colorFor(ring, angle, top=true) {
+  const v=V[sim.variety];
+  if(!top) return [v.rind[0]*.53,v.rind[1]*.53,v.rind[2]*.53,1];
+  if(ring>.91) {
+    const stripe=(Math.sin(angle*18+Math.sin(angle*7)*1.1)>.48)?0.65:1;
+    return [v.rind[0]*stripe,v.rind[1]*stripe,v.rind[2]*stripe,1];
+  }
+  if(ring>.84) return [...v.band,1];
+  const glow=clamp((.87-ring)*.23,0,.10);
+  return [v.flesh[0]+glow,v.flesh[1]+glow*.6,v.flesh[2]+glow*.6,1];
+}
+function polyArea(poly) {
+  let a=0;
+  for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length];a+=p[0]*q[1]-q[0]*p[1];}
+  return a*.5;
+}
+function polygonCentroid(poly) {
+  let x=0,y=0,a=0;
+  for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],c=p[0]*q[1]-q[0]*p[1];x+=(p[0]+q[0])*c;y+=(p[1]+q[1])*c;a+=c;}
+  if(Math.abs(a)<1e-5) return poly.reduce((s,p)=>[s[0]+p[0]/poly.length,s[1]+p[1]/poly.length],[0,0]);
+  return [x/(3*a),y/(3*a)];
+}
+function pointInPoly(x,y,poly) {
+  let c=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[i],b=poly[j];
+    if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))c=!c;
+  }
+  return c;
+}
+function sampleBoundary(poly,count) {
+  const lengths=[];
+  let perimeter=0;
+  for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length];const len=Math.hypot(q[0]-p[0],q[1]-p[1]);lengths.push(len);perimeter+=len;}
+  const out=[];
+  for(let s=0;s<count;s++){
+    let d=perimeter*s/count, edge=0;
+    while(edge<lengths.length-1&&d>lengths[edge]){d-=lengths[edge];edge++;}
+    const a=poly[edge],b=poly[(edge+1)%poly.length],t=lengths[edge]?d/lengths[edge]:0;
+    out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);
+  }
+  return out;
+}
+function makeBody(poly, velocity=[0,0,0], lift=0) {
+  const center=polygonCentroid(poly), boundary=sampleBoundary(poly,48), nr=8, na=boundary.length, nodes=[];
+  for(let r=0;r<nr;r++){
+    const t=.025+.975*r/(nr-1);
+    for(let a=0;a<na;a++){
+      const b=boundary[a];
+      const pos=[center[0]+(b[0]-center[0])*t,center[1]+(b[1]-center[1])*t,.19+lift];
+      nodes.push({p:pos.slice(),v:velocity.slice(),rest:pos.slice(),mass:1});
+    }
+  }
+  const springs=[],seen=new Set(),idx=(r,a)=>r*na+(a%na+na)%na;
+  const spring=(i,j,k=1)=>{
+    if(i===j)return;const key=i<j?`${i}:${j}`:`${j}:${i}`;if(seen.has(key))return;seen.add(key);
+    const a=nodes[i].rest,b=nodes[j].rest;
+    springs.push({i,j,len:Math.hypot(a[0]-b[0],a[1]-b[1]),k});
+  };
+  for(let r=0;r<nr;r++)for(let a=0;a<na;a++){
+    spring(idx(r,a),idx(r,a+1),.95);
+    if(r<nr-1){
+      spring(idx(r,a),idx(r+1,a),1.25);
+      spring(idx(r,a),idx(r+1,a+1),.7);
+      spring(idx(r,a),idx(r+1,a-1),.7);
+    }
+  }
+  const topBase=0,bottomBase=nodes.length,verts=[],indices=[],refs=[],colorRefs=[];
+  const pushV=(n,dz,ring,angle,col)=>{
+    const node=nodes[n],i=verts.length/stride, c=col||colorFor(ring,angle,true);
+    verts.push(node.p[0],node.p[1],node.p[2]+dz,0,0,1,...c);
+    refs.push([n,dz]);colorRefs.push([ring,angle,!col]);return i;
+  };
+  for(let r=0;r<nr;r++)for(let a=0;a<na;a++){
+    const ring=r/(nr-1), angle=a/na*Math.PI*2;
+    pushV(idx(r,a),.19,ring,angle);
+  }
+  for(let r=0;r<nr;r++)for(let a=0;a<na;a++){
+    const ring=r/(nr-1), angle=a/na*Math.PI*2;
+    pushV(idx(r,a),-.19,ring,angle,colorFor(ring,angle,false));
+  }
+  for(let r=0;r<nr-1;r++)for(let a=0;a<na;a++){
+    const an=(a+1)%na,A=idx(r,a),B=idx(r+1,a),C=idx(r+1,an),D=idx(r,an);
+    indices.push(topBase+A,topBase+B,topBase+C,topBase+A,topBase+C,topBase+D);
+    indices.push(bottomBase+A,bottomBase+C,bottomBase+B,bottomBase+A,bottomBase+D,bottomBase+C);
+  }
+  const sideEdge=(list, outer=false)=>{
+    for(let e=0;e<list.length;e++){
+      const a=list[e],b=list[(e+1)%list.length],c=outer?[.055,.12,.065,1]:[.085,.19,.105,1];
+      const A=pushV(a,.19,1,0,c),B=pushV(b,.19,1,0,c),C=pushV(b,-.19,1,0,c),D=pushV(a,-.19,1,0,c);
+      indices.push(A,B,C,A,C,D);
+    }
+  };
+  sideEdge(Array.from({length:na},(_,a)=>idx(nr-1,a)),true);
+  sideEdge(Array.from({length:nr},(_,r)=>idx(r,0)));
+  sideEdge(Array.from({length:nr},(_,r)=>idx(r,Math.floor(na/2))));
+  const mesh=createMesh(new Float32Array(verts),new Uint32Array(indices),true);
+  const seedDefs=[];
+  const seedCount=Math.max(3,Math.round(13*Math.sqrt(Math.abs(polyArea(poly))/2.1)));
+  for(let k=0;k<seedCount;k++){
+    const t=.47+(k%4)*.075, a=(k*0.61803398875)%1;
+    const ni=Math.min(nr-2,Math.max(0,Math.round(t*(nr-1))));
+    const ai=Math.floor(a*na);
+    const n=idx(ni,ai);
+    const off=[Math.cos(a*6.283)*.045,Math.sin(a*6.283)*.045,0];
+    seedDefs.push({n,off,scale:.037+(k%3)*.006});
+  }
+  const seedMesh=createMesh(new Float32Array(0),new Uint32Array(0),true);
+  const wireIndices=[];
+  for(let i=0;i<springs.length;i++){const b=i*4;wireIndices.push(b,b+1,b+2,b,b+2,b+3);}
+  const wireMesh=createMesh(new Float32Array(springs.length*4*stride),new Uint32Array(wireIndices),true);
+  return {poly:poly.map(p=>p.slice()),center,nodes,springs,nr,na,mesh,refs,colorRefs,seedDefs,seedMesh,wireMesh,area:Math.abs(polyArea(poly)),restArea:Math.abs(polyArea(poly)),angle:0,component:sim.pieces.length};
+}
+function seedData(body) {
+  const palette=V[sim.variety].seed, sides=8;
+  const vertices=[],indices=[];
+  for(const seed of body.seedDefs){
+    const p=body.nodes[seed.n].p,cx=p[0]+seed.off[0],cy=p[1]+seed.off[1],cz=p[2]+.202,base=vertices.length/stride;
+    vertices.push(cx,cy,cz,0,0,1,...palette,1);
+    for(let j=0;j<sides;j++){const a=j/sides*Math.PI*2;vertices.push(cx+Math.cos(a)*seed.scale,cy+Math.sin(a)*seed.scale*.48,cz+.002,0,0,1,...palette,1);}
+    for(let j=0;j<sides;j++){const a=base+1+j,b=base+1+(j+1)%sides;indices.push(base,a,b);}
+  }
+  return {vertices:new Float32Array(vertices),indices:new Uint32Array(indices)};
+}
+function refreshBodyMesh(body) {
+  const data=body.mesh.cpu;
+  for(let i=0;i<body.refs.length;i++){
+    const [n,dz]=body.refs[i],p=body.nodes[n].p,o=i*stride;
+    data[o]=p[0];data[o+1]=p[1];data[o+2]=p[2]+dz;
+    data[o+3]=0;data[o+4]=0;data[o+5]=dz>=0?1:-1;
+    const colorRef=body.colorRefs[i];
+    if(colorRef){const color=colorFor(colorRef[0],colorRef[1],colorRef[2]);data.set(color,o+6);}
+  }
+  setMeshData(body.mesh,data);
+  const s=seedData(body);setMeshData(body.seedMesh,s.vertices);
+  if(s.indices.length!==body.seedMesh.count){
+    if(body.seedMesh.index)body.seedMesh.index.destroy();
+    body.seedMesh.indices=s.indices;body.seedMesh.index=device?makeGpuBuffer(s.indices,GPUBufferUsage.INDEX):null;
+    body.seedMesh.count=s.indices.length;body.seedMesh.gpuDevice=device||null;
+  }
+  if(sim.showMesh) {
+    const wire=body.wireMesh.cpu;
+    for(let i=0;i<body.springs.length;i++){
+      const edge=body.springs[i],a=body.nodes[edge.i].p,b=body.nodes[edge.j].p;
+      const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1,ox=-dy/len*.003,oy=dx/len*.003,o=i*4*stride;
+      const points=[[a[0]+ox,a[1]+oy,a[2]+.198],[a[0]-ox,a[1]-oy,a[2]+.198],[b[0]-ox,b[1]-oy,b[2]+.198],[b[0]+ox,b[1]+oy,b[2]+.198]];
+      for(let j=0;j<4;j++){const at=o+j*stride;wire[at]=points[j][0];wire[at+1]=points[j][1];wire[at+2]=points[j][2];wire[at+3]=0;wire[at+4]=0;wire[at+5]=1;wire[at+6]=.09;wire[at+7]=.12;wire[at+8]=.09;wire[at+9]=1;}
+    }
+    setMeshData(body.wireMesh,wire);
+  }
+}
+function initialPoly() {
+  const p=[[0,0]], steps=64, half=Math.PI*32/180, radius=1.64;
+  for(let i=0;i<=steps;i++){const a=-half+2*half*i/steps;p.push([radius*Math.cos(a),radius*Math.sin(a)]);}
+  return p;
+}
+function resetSim() {
+  sim.cut=null; drawing=false; strokeStart=null; strokeNow=null; pointerHeld=null;
+  $("guidePath").setAttribute("d","");
+  for(const piece of sim.pieces){try{piece.mesh.buffer.destroy();piece.mesh.index.destroy();piece.seedMesh.buffer.destroy();piece.seedMesh.index.destroy();}catch{}}
+  sim.pieces=[makeBody(initialPoly())];sim.accumulator=0;camera.target=[1.35,0,0];
+  if(gpuReady) refreshAllMeshes();
+  updateStats();
+}
+function refreshAllMeshes(){for(const piece of sim.pieces)refreshBodyMesh(piece);}
+function nudge() {
+  for(const piece of sim.pieces){
+    const cx=piece.center[0],cy=piece.center[1];
+    for(const n of piece.nodes){const dx=n.p[0]-cx,dy=n.p[1]-cy,d=Math.hypot(dx,dy)||1;n.v[0]+=dx/d*.65+(Math.random()-.5)*.16;n.v[1]+=dy/d*.65+(Math.random()-.5)*.16;n.v[2]+=.38;}
+  }
+}
+function updateStats() {
+  let totalArea=0,kinetic=0;
+  for(const p of sim.pieces){
+    totalArea+=p.area;
+    for(const n of p.nodes)kinetic+=.5*(n.v[0]**2+n.v[1]**2+n.v[2]**2);
+  }
+  const grams=totalArea*.38*3.5**3*1.3;
+  $("mass").textContent=`≈ ${Math.max(1,Math.round(grams))}`;
+  $("volume").textContent=String(Math.round(totalArea/Math.abs(polyArea(initialPoly()))*100));
+  $("energy").textContent=(kinetic*0.038).toFixed(1);
+  $("pieces").textContent=String(sim.pieces.length);
+}
+function simulationStep(dt) {
+  const subSteps=10,h=dt/subSteps,gravity=-1.8,damp=sim.damping;
+  for(let substep=0;substep<subSteps;substep++){
+    for(const piece of sim.pieces){
+      const nodes=piece.nodes, forces=nodes.map(()=>[0,0,gravity]);
+      const firm=sim.firmness, stiffness=65+firm*410;
+      for(const e of piece.springs){
+        const a=nodes[e.i],b=nodes[e.j],d=sub(b.p,a.p),len=Math.hypot(...d)||1,dir=mul(d,1/len);
+        const stretch=len-e.len, rel=dot(sub(b.v,a.v),dir);
+        const f=stiffness*e.k*stretch+(3+17*damp)*rel;
+        for(let k=0;k<3;k++){forces[e.i][k]+=dir[k]*f;forces[e.j][k]-=dir[k]*f;}
+      }
+      for(let i=0;i<nodes.length;i++){
+        const n=nodes[i];
+        if(pointerHeld&&pointerHeld.piece===piece){
+          const d=Math.hypot(n.p[0]-pointerHeld.world[0],n.p[1]-pointerHeld.world[1]);
+          const w=Math.exp(-d*d/.16);
+          forces[i][0]+=(pointerHeld.target[0]-n.p[0])*w*250;
+          forces[i][1]+=(pointerHeld.target[1]-n.p[1])*w*250;
+          forces[i][2]+=(pointerHeld.target[2]-n.p[2])*w*100;
+        }
+        if(sim.cut&&sim.cut.phase<.39){
+          const c=sim.cut, line=sub(c.end,c.start), ll=Math.hypot(line[0],line[1])||1;
+          const distance=Math.abs((n.p[0]-c.start[0])*line[1]-(n.p[1]-c.start[1])*line[0])/ll;
+          const along=((n.p[0]-c.start[0])*line[0]+(n.p[1]-c.start[1])*line[1])/(ll*ll);
+          if(distance<.085&&along>-.04&&along<1.04)forces[i][2]-=(.39-c.phase)*80*Math.exp(-distance*distance/.008);
+        }
+        const air=1.4;
+        n.v[0]+=(forces[i][0]-n.v[0]*air)*h;
+        n.v[1]+=(forces[i][1]-n.v[1]*air)*h;
+        n.v[2]+=(forces[i][2]-n.v[2]*(2+22*damp))*h;
+        const speed=Math.hypot(...n.v);if(speed>3.4)n.v=mul(n.v,3.4/speed);
+        n.p[0]+=n.v[0]*h;n.p[1]+=n.v[1]*h;n.p[2]+=n.v[2]*h;
+        if(n.p[2]<.19){n.p[2]=.19;if(n.v[2]<0)n.v[2]*=-.12;n.v[0]*=.985;n.v[1]*=.985;}
+        if(!Number.isFinite(n.p[0]+n.p[1]+n.p[2])){n.p=n.rest.slice();n.v=[0,0,0];}
+      }
+    }
+    if(sim.pieces.length>1) collidePieces();
+  }
+  if(pointerHeld) {
+    pointerHeld.target[2]=Math.max(.22,pointerHeld.target[2]);
+  }
+}
+function collidePieces() {
+  for(let a=0;a<sim.pieces.length;a++)for(let b=a+1;b<sim.pieces.length;b++){
+    const A=sim.pieces[a],B=sim.pieces[b];
+    for(let i=0;i<A.nodes.length;i+=3)for(let j=0;j<B.nodes.length;j+=3){
+      const x=A.nodes[i],y=B.nodes[j],dx=y.p[0]-x.p[0],dy=y.p[1]-x.p[1],d=Math.hypot(dx,dy);
+      if(d<.045&&d>1e-5){const push=Math.min(.003,(.045-d)*.06);x.p[0]-=dx/d*push;x.p[1]-=dy/d*push;y.p[0]+=dx/d*push;y.p[1]+=dy/d*push;}
+    }
+  }
+}
+function clipPoly(poly, a,b, keepPositive, offset=0) {
+  const out=[],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+  const sign=keepPositive?1:-1;
+  const val=(p)=>sign*((p[0]-a[0])*dy-(p[1]-a[1])*dx)/len-offset;
+  for(let i=0;i<poly.length;i++){
+    const p=poly[i],q=poly[(i+1)%poly.length],vp=val(p),vq=val(q),ip=vp>=0,iq=vq>=0;
+    if(ip)out.push(p.slice());
+    if(ip!==iq){const t=vp/(vp-vq);out.push([p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t]);}
+  }
+  return out;
+}
+function planCut(start,end) {
+  const crossed=[];let tooThin=false;
+  if(sim.pieces.length>=14)return {ok:false,reason:"limit",crossed:[]};
+  for(const piece of sim.pieces){
+    const A=clipPoly(piece.poly,start,end,true,0),B=clipPoly(piece.poly,start,end,false,0);
+    if(A.length>=3&&B.length>=3) {
+      if(Math.abs(polyArea(A))>.04&&Math.abs(polyArea(B))>.04)crossed.push({piece,A,B});
+      else tooThin=true;
+    }
+  }
+  return {ok:crossed.length>0,reason:crossed.length?"":tooThin?"thin":"miss",crossed,start,end};
+}
+function startCut(start,end) {
+  const plan=planCut(start,end);
+  if(!plan.ok){showToast(plan.reason==="limit"?"That's plenty of pieces.":plan.reason==="thin"?"Too thin to cut there.":"Missed — draw the blade across the slice.");return false;}
+  sim.cut={...plan,phase:0,swapped:false,duration:1.1,angle:Math.atan2(end[1]-start[1],end[0]-start[0]),center:[(start[0]+end[0])/2,(start[1]+end[1])/2]};
+  knifePose.visible=true;knifePose.x=sim.cut.center[0];knifePose.y=sim.cut.center[1];knifePose.angle=sim.cut.angle;knifePose.z=.8;
+  return true;
+}
+function advanceCut(dt) {
+  const c=sim.cut;if(!c)return;
+  c.phase+=dt;
+  const t=c.phase;
+  if(t<.16){knifePose.z=.8-.15*(t/.16);}
+  else if(t<.42){knifePose.z=.65-.70*((t-.16)/.26);}
+  else if(t<.65){knifePose.z=-.05;}
+  else knifePose.z=-.05+.85*clamp((t-.65)/.45,0,1);
+  if(!c.swapped&&t>=.42){
+    c.swapped=true;
+    const replacement=[];
+    for(const p of sim.pieces){
+      const entry=c.crossed.find(x=>x.piece===p);
+      if(!entry){replacement.push(p);continue;}
+      const avg=p.nodes.reduce((s,n)=>add(s,n.v),[0,0,0]).map(x=>x/p.nodes.length);
+      const normal=norm([-(c.end[1]-c.start[1]),c.end[0]-c.start[0],0]);
+      const current=p.nodes.reduce((s,n)=>[s[0]+n.p[0]/p.nodes.length,s[1]+n.p[1]/p.nodes.length],[0,0]);
+      const origin=polygonCentroid(p.poly),offset=[current[0]-origin[0],current[1]-origin[1]];
+      const aPoly=entry.A.map(q=>[q[0]+offset[0],q[1]+offset[1]]);
+      const bPoly=entry.B.map(q=>[q[0]+offset[0],q[1]+offset[1]]);
+      const a=makeBody(aPoly,add(avg,mul(normal,.08)),.015),b=makeBody(bPoly,add(avg,mul(normal,-.08)),.015);
+      replacement.push(a,b);
+    }
+    sim.pieces=replacement;refreshAllMeshes();updateStats();
+  }
+  if(t>=c.duration){sim.cut=null;knifePose.z=.8;knifePose.visible=sim.tool==="knife";}
+}
+function showToast(text) {
+  const toast=$("toast");toast.textContent=text;toast.classList.add("show");
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),1900);
+}
+function screenRay(clientX,clientY) {
+  const rect=canvas.getBoundingClientRect(),x=(clientX-rect.left)/rect.width*2-1,y=1-(clientY-rect.top)/rect.height*2;
+  const {vp}=cameraState(),inv=invert(vp);
+  const point=(z)=>{const p=mul4(inv,[x,y,z,1]);return [p[0]/p[3],p[1]/p[3],p[2]/p[3]];};
+  const near=point(0),far=point(1),d=sub(far,near);
+  return {origin:near,dir:d,plane:(z)=>{const t=(z-near[2])/(d[2]||1e-6);return [near[0]+d[0]*t,near[1]+d[1]*t,z];}};
+}
+function mul4(m,v){return [m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3],m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3],m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3],m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]];}
+function invert(a) {
+  const out=new Float32Array(16),m=a;
+  const b00=m[0]*m[5]-m[1]*m[4],b01=m[0]*m[6]-m[2]*m[4],b02=m[0]*m[7]-m[3]*m[4],b03=m[1]*m[6]-m[2]*m[5],b04=m[1]*m[7]-m[3]*m[5],b05=m[2]*m[7]-m[3]*m[6],b06=m[8]*m[13]-m[9]*m[12],b07=m[8]*m[14]-m[10]*m[12],b08=m[8]*m[15]-m[11]*m[12],b09=m[9]*m[14]-m[10]*m[13],b10=m[9]*m[15]-m[11]*m[13],b11=m[10]*m[15]-m[11]*m[14];
+  let det=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!det)return out;det=1/det;
+  out[0]=(m[5]*b11-m[6]*b10+m[7]*b09)*det;out[1]=(m[2]*b10-m[1]*b11-m[3]*b09)*det;out[2]=(m[13]*b05-m[14]*b04+m[15]*b03)*det;out[3]=(m[10]*b04-m[9]*b05-m[11]*b03)*det;
+  out[4]=(m[6]*b08-m[4]*b11-m[7]*b07)*det;out[5]=(m[0]*b11-m[2]*b08+m[3]*b07)*det;out[6]=(m[14]*b02-m[12]*b05-m[15]*b01)*det;out[7]=(m[8]*b05-m[10]*b02+m[11]*b01)*det;
+  out[8]=(m[4]*b10-m[5]*b08+m[7]*b06)*det;out[9]=(m[1]*b08-m[0]*b10-m[3]*b06)*det;out[10]=(m[12]*b04-m[13]*b02+m[15]*b00)*det;out[11]=(m[9]*b02-m[8]*b04-m[11]*b00)*det;
+  out[12]=(m[5]*b07-m[4]*b09-m[6]*b06)*det;out[13]=(m[0]*b09-m[1]*b07+m[2]*b06)*det;out[14]=(m[13]*b01-m[12]*b03-m[14]*b00)*det;out[15]=(m[8]*b03-m[9]*b01+m[10]*b00)*det;
+  return out;
+}
+function appendExtrusion(out, poly, z0, z1, color, edgeColor=color) {
+  const base=out.v.length/stride,n=poly.length;
+  const push=(p,z,norm,col)=>out.v.push(p[0],p[1],z,norm[0],norm[1],norm[2],...col);
+  for(const p of poly)push(p,z1,[0,0,1],color);
+  for(let i=1;i<n-1;i++)out.i.push(base,base+i,base+i+1);
+  const bot=out.v.length/stride;
+  for(const p of poly)push(p,z0,[0,0,-1],edgeColor);
+  for(let i=1;i<n-1;i++)out.i.push(bot,bot+i+1,bot+i);
+  for(let i=0;i<n;i++){
+    const a=poly[i],b=poly[(i+1)%n],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+    const normal=[dy/len,-dx/len,0],s=out.v.length/stride,c=edgeColor;
+    push(a,z0,normal,c);push(b,z0,normal,c);push(b,z1,normal,c);push(a,z1,normal,c);
+    out.i.push(s,s+1,s+2,s,s+2,s+3);
+  }
+}
+function capsulePoly(x0,x1,r,steps=8) {
+  const out=[];
+  for(let i=0;i<=steps;i++){const a=-Math.PI/2+Math.PI*i/steps;out.push([x1+Math.cos(a)*r,Math.sin(a)*r]);}
+  for(let i=0;i<=steps;i++){const a=Math.PI/2+Math.PI*i/steps;out.push([x0+Math.cos(a)*r,Math.sin(a)*r]);}
+  return out;
+}
+function makeKnife() {
+  const out={v:[],i:[]};
+  const blade=[[-.84,-.145],[.67,-.145],[.87,-.105],[.96,-.01],[.83,.12],[.62,.15],[-.84,.15]];
+  appendExtrusion(out,blade,-.014,.018,[.62,.67,.68,1],[.39,.43,.44,1]);
+  appendExtrusion(out,[[-.78,-.151],[.70,-.151],[.86,-.116],[-.78,-.118]],.004,.021,[.86,.88,.86,1]);
+  appendExtrusion(out,capsulePoly(-1.60,-.78,.105,10),-.035,.035,[.23,.14,.09,1],[.16,.095,.06,1]);
+  appendExtrusion(out,[[-.84,-.16],[-.76,-.16],[-.76,.16],[-.84,.16]],-.045,.045,[.68,.66,.59,1]);
+  for(const x of [-1.42,-1.15,-.9]){
+    const rivet=[];for(let j=0;j<12;j++){const a=j/12*Math.PI*2;rivet.push([x+Math.cos(a)*.025,Math.sin(a)*.025]);}
+    appendExtrusion(out,rivet,.036,.047,[.76,.74,.68,1],[.62,.60,.54,1]);
+  }
+  return {local:new Float32Array(out.v),indices:new Uint32Array(out.i),mesh:null};
+}
+const knife=makeKnife();
+const floorMesh=null;
+function floorGeometry() {
+  const c=[.886,.874,.847,1],v=[
+    -100,-100,-.012,0,0,1,...c,100,-100,-.012,0,0,1,...c,
+    100,100,-.012,0,0,1,...c,-100,100,-.012,0,0,1,...c
+  ];
+  return createMesh(new Float32Array(v),new Uint32Array([0,1,2,0,2,3]));
+}
+function placeKnife() {
+  if(!knife.mesh)return;
+  const data=new Float32Array(knife.local.length),a=knifePose.angle,c=Math.cos(a),s=Math.sin(a),scale=.56;
+  for(let i=0;i<knife.local.length;i+=stride){
+    const x=knife.local[i]*scale,y=knife.local[i+1]*scale,z=knife.local[i+2]*scale;
+    data[i]=knifePose.x+x*c-y*s;data[i+1]=knifePose.y+x*s+y*c;data[i+2]=knifePose.z+z;
+    data[i+3]=knife.local[i+3]*c-knife.local[i+4]*s;data[i+4]=knife.local[i+3]*s+knife.local[i+4]*c;data[i+5]=knife.local[i+5];
+    data.set(knife.local.subarray(i+6,i+10),i+6);
+  }
+  setMeshData(knife.mesh,data);
+}
+function drawMesh(pass,mesh) {
+  if(!mesh||!mesh.count)return;
+  pass.setVertexBuffer(0,mesh.buffer);pass.setIndexBuffer(mesh.index,"uint32");pass.drawIndexed(mesh.count);
+}
+function resize() {
+  const dpr=Math.min(device?device.limits.maxTextureDimension2D:2,window.devicePixelRatio||1,2);
+  const w=Math.max(1,Math.floor(canvas.clientWidth*dpr)),h=Math.max(1,Math.floor(canvas.clientHeight*dpr));
+  const changed=canvas.width!==w||canvas.height!==h;
+  if(!changed&&(!device||(msaaTexture&&depthTexture)))return;
+  if(changed){canvas.width=w;canvas.height=h;}
+  if(!device||!context)return;
+  if(msaaTexture)msaaTexture.destroy();if(depthTexture)depthTexture.destroy();
+  msaaTexture=device.createTexture({size:[w,h],sampleCount:4,format,usage:GPUTextureUsage.RENDER_ATTACHMENT});
+  msaaView=msaaTexture.createView();
+  depthTexture=device.createTexture({size:[w,h],sampleCount:4,format:"depth24plus",usage:GPUTextureUsage.RENDER_ATTACHMENT});
+}
+async function setupGpu() {
+  const adapter=await navigator.gpu.requestAdapter({powerPreference:"high-performance"});
+  if(!adapter)throw new Error("WebGPU is present, but this device did not offer a compatible GPU adapter.");
+  device=await adapter.requestDevice();
+  msaaTexture=null;msaaView=null;depthTexture=null;
+  context=canvas.getContext("webgpu");
+  if(!context)throw new Error("This browser exposed WebGPU but could not create a WebGPU canvas context.");
+  format=navigator.gpu.getPreferredCanvasFormat();
+  context.configure({device,format,alphaMode:"opaque"});
+  await createPipelines();
+  knife.mesh=createMesh(knife.local,knife.indices,true);
+  const floor=floorGeometry();
+  window.__floor=floor;
+  resize();refreshAllMeshes();
+  gpuReady=true;
+  controls.querySelectorAll("button,input").forEach((el)=>el.disabled=false);
+  if(device.lost)device.lost.then((info)=>recoverDevice(info));
+}
+let recovering=false;
+async function recoverDevice(info) {
+  if(recovering)return;recovering=true;gpuReady=false;
+  if(rebuilds>=2){showUnavailable(`The WebGPU device was lost (${info.message||info.reason||"unknown reason"}) and could not be restored after two attempts. Try reloading in a WebGPU-capable browser.`);recovering=false;return;}
+  rebuilds++;statusPill.textContent="WebGPU · restoring";statusPill.className="status paused";
+  try {
+    await setupGpu();
+    statusPill.textContent=sim.paused?"WebGPU · paused":"WebGPU · live";statusPill.className=sim.paused?"status paused":"status";
+  } catch(error) {
+    if(rebuilds<2){recovering=false;await recoverDevice({message:error.message});return;}
+    showUnavailable(error.message);
+  }
+  recovering=false;
+}
+function showUnavailable(reason) {
+  $("fallbackReason").textContent=reason;
+  $("fallback").style.display="flex";
+  statusPill.textContent="WebGPU · unavailable";statusPill.className="status unavailable";
+  controls.querySelectorAll("button,input").forEach((el)=>el.disabled=true);
+  gpuReady=false;
+}
+function render() {
+  if(!gpuReady||!device)return;
+  resize();
+  const cam=cameraState(),u=new Float32Array(24);
+  u.set(cam.vp,0);u.set([cam.eye[0],cam.eye[1],cam.eye[2],1],16);u.set([sim.time,0,0,0],20);
+  device.queue.writeBuffer(uniformBuffer,0,u.buffer);
+  placeKnife();
+  const encoder=device.createCommandEncoder();
+  const pass=encoder.beginRenderPass({
+    colorAttachments:[{view:msaaView,resolveTarget:context.getCurrentTexture().createView(),clearValue:{r:.886,g:.874,b:.847,a:1},loadOp:"clear",storeOp:"discard"}],
+    depthStencilAttachment:{view:depthTexture.createView(),depthClearValue:1,depthLoadOp:"clear",depthStoreOp:"discard"}
+  });
+  pass.setPipeline(pipeline);pass.setBindGroup(0,renderBindGroup);
+  drawMesh(pass,window.__floor);
+  for(const piece of sim.pieces){drawMesh(pass,piece.mesh);drawMesh(pass,piece.seedMesh);if(sim.showMesh)drawMesh(pass,piece.wireMesh);}
+  if(knifePose.visible||sim.tool==="knife")drawMesh(pass,knife.mesh);
+  pass.end();device.queue.submit([encoder.finish()]);
+}
+function applyTool(tool) {
+  sim.tool=tool;
+  $("handTool").classList.toggle("active",tool==="hand");$("knifeTool").classList.toggle("active",tool==="knife");
+  $("handTool").setAttribute("aria-pressed",String(tool==="hand"));$("knifeTool").setAttribute("aria-pressed",String(tool==="knife"));
+  $("hint").textContent=tool==="hand"?"Reach in and give the jelly a little pull.":"Draw a line across the slice; the knife will follow.";
+  knifePose.visible=tool==="knife";
+  if(tool==="knife"&&sim.pieces.length){const center=polygonCentroid(sim.pieces[0].poly);knifePose.x=center[0];knifePose.y=center[1];knifePose.angle=0;knifePose.z=.8;}
+}
+function pointerWorld(ev,z=.235){return screenRay(ev.clientX,ev.clientY).plane(z);}
+function findPiece(point) {
+  for(let i=sim.pieces.length-1;i>=0;i--){
+    const p=sim.pieces[i];const worldPoly=p.poly;
+    if(pointInPoly(point[0],point[1],worldPoly))return p;
+  }
+  let best=null,dist=.17;
+  for(const p of sim.pieces)for(const n of p.nodes){
+    const d=Math.hypot(n.p[0]-point[0],n.p[1]-point[1]);
+    if(d<dist){dist=d;best=p;}
+  }
+  return best;
+}
+function worldToScreen(p) {
+  const {vp}=cameraState(),q=mul4(vp,[p[0],p[1],p[2]||.24,1]),rect=canvas.getBoundingClientRect();
+  return [rect.left+(q[0]/q[3]+1)*.5*rect.width,rect.top+(1-q[1]/q[3])*.5*rect.height];
+}
+function updateGuide() {
+  const path=$("guidePath");
+  if(!drawing||!strokeStart||!strokeNow){path.setAttribute("d","");return;}
+  const a=worldToScreen(strokeStart),b=worldToScreen(strokeNow);
+  path.setAttribute("d",`M${a[0].toFixed(1)},${a[1].toFixed(1)} L${b[0].toFixed(1)},${b[1].toFixed(1)}`);
+}
+function pointerDown(ev) {
+  if(!gpuReady)return;
+  canvas.setPointerCapture(ev.pointerId);
+  const point=pointerWorld(ev);
+  if(sim.tool==="knife"){
+    if(sim.cut)return;
+    const bladePoint=pointerWorld(ev,.8);
+    drawing=true;strokeStart=[point[0],point[1]];strokeNow=[point[0],point[1]];
+    knifeStart=[bladePoint[0],bladePoint[1]];
+    knifePose.visible=true;knifePose.x=bladePoint[0];knifePose.y=bladePoint[1];return;
+  }
+  if(camera.dragging)return;
+  const piece=findPiece(point);
+  if(piece){
+    const target=point.slice();pointerHeld={pointerId:ev.pointerId,piece,world:point.slice(),target};
+  }else{camera.dragging=true;camera.lastX=ev.clientX;camera.lastY=ev.clientY;}
+}
+function pointerMove(ev) {
+  if(drawing&&strokeStart){
+    const p=pointerWorld(ev),bladePoint=pointerWorld(ev,.8);strokeNow=[p[0],p[1]];
+    const dx=bladePoint[0]-knifeStart[0],dy=bladePoint[1]-knifeStart[1],len=Math.hypot(dx,dy);
+    if(len>.02){
+      let angle=Math.atan2(dy,dx);
+      const right=[Math.cos(camera.yaw),Math.sin(camera.yaw)];
+      if(Math.cos(angle)*right[0]+Math.sin(angle)*right[1]<0)angle+=Math.PI;
+      knifePose.angle=angle;knifePose.x=(knifeStart[0]+bladePoint[0])/2;knifePose.y=(knifeStart[1]+bladePoint[1])/2;
+    }
+    updateGuide();return;
+  }
+  if(pointerHeld&&pointerHeld.pointerId===ev.pointerId){
+    const p=pointerWorld(ev,Math.max(.22,pointerHeld.target[2]));
+    const dx=p[0]-pointerHeld.world[0],dy=p[1]-pointerHeld.world[1],len=Math.hypot(dx,dy),reach=1.05;
+    const f=len>reach?reach/len:1;
+    pointerHeld.target[0]=pointerHeld.world[0]+dx*f;pointerHeld.target[1]=pointerHeld.world[1]+dy*f;
+    return;
+  }
+  if(camera.dragging){
+    camera.yaw-=(ev.clientX-camera.lastX)*.006;
+    camera.pitch=clamp(camera.pitch+(ev.clientY-camera.lastY)*.005,.23,1.25);
+    camera.lastX=ev.clientX;camera.lastY=ev.clientY;return;
+  }
+  if(sim.tool==="knife"&&!sim.cut){
+    const p=pointerWorld(ev,.8);knifePose.x=p[0];knifePose.y=p[1];knifePose.visible=true;
+  }
+}
+function pointerUp(ev) {
+  if(drawing&&strokeStart&&strokeNow){
+    const a=strokeStart,b=strokeNow,dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);
+    drawing=false;$("guidePath").setAttribute("d","");
+    if(len<.16){showToast("Too thin to cut there.");}
+    else startCut(a,b);
+    strokeStart=null;strokeNow=null;return;
+  }
+  if(pointerHeld&&pointerHeld.pointerId===ev.pointerId)pointerHeld=null;
+  camera.dragging=false;
+}
+function updateCameraFollow() {
+  let x=0,y=0,count=0;
+  for(const p of sim.pieces)for(let i=0;i<p.nodes.length;i+=12){x+=p.nodes[i].p[0];y+=p.nodes[i].p[1];count++;}
+  if(count){
+    const cx=x/count,cy=y/count;
+    if(Math.hypot(cx-camera.target[0],cy-camera.target[1])>1.6){
+      camera.target[0]+=(cx-camera.target[0])*.012;camera.target[1]+=(cy-camera.target[1])*.012;
+    }
+  }
+}
+function animate(now) {
+  requestAnimationFrame(animate);
+  if(!lastFrame)lastFrame=now;
+  const elapsed=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
+  if(gpuReady&&!sim.paused){
+    const scale=sim.slow?.25:1;
+    sim.accumulator+=elapsed*scale;
+    let steps=0;
+    while(sim.accumulator>=targetFps&&steps<3){simulationStep(targetFps);sim.accumulator-=targetFps;steps++;}
+    if(sim.accumulator>=targetFps){sim.accumulator=0;sim.dropped++;}
+    sim.time+=elapsed*scale;
+    if(sim.cut)advanceCut(elapsed*scale);
+    updateCameraFollow();
+    for(const p of sim.pieces)refreshBodyMesh(p);
+    updateStats();
+  }
+  render();updateGuide();
+}
+function togglePause() {
+  sim.paused=!sim.paused;
+  $("pause").textContent=sim.paused?"Resume":"Pause";
+  statusPill.textContent=sim.paused?"WebGPU · paused":"WebGPU · live";
+  statusPill.classList.toggle("paused",sim.paused);
+}
+function bindUI() {
+  $("handTool").addEventListener("click",()=>applyTool("hand"));
+  $("knifeTool").addEventListener("click",()=>applyTool("knife"));
+  document.querySelectorAll(".variety").forEach((button)=>button.addEventListener("click",()=>{
+    sim.variety=button.dataset.variety;
+    document.querySelectorAll(".variety").forEach((b)=>b.setAttribute("aria-pressed",String(b===button)));
+    document.documentElement.style.setProperty("--accent",V[sim.variety].accent);
+    if(gpuReady)refreshAllMeshes();
+  }));
+  $("firmness").addEventListener("input",(e)=>{sim.firmness=Number(e.target.value)/100;$("firmValue").value=e.target.value;});
+  $("damping").addEventListener("input",(e)=>{sim.damping=Number(e.target.value)/100;$("dampValue").value=e.target.value;});
+  $("nudge").addEventListener("click",nudge);
+  $("reset").addEventListener("click",()=>{resetSim();camera.yaw=-.28;camera.pitch=1.04;camera.distance=4.9;});
+  $("pause").addEventListener("click",togglePause);
+  $("quarter").addEventListener("change",(e)=>sim.slow=e.target.checked);
+  $("meshToggle").addEventListener("change",(e)=>{sim.showMesh=e.target.checked;});
+  canvas.addEventListener("pointerdown",pointerDown);
+  canvas.addEventListener("pointermove",pointerMove);
+  canvas.addEventListener("pointerup",pointerUp);
+  canvas.addEventListener("pointercancel",pointerUp);
+  canvas.addEventListener("wheel",(e)=>{
+    e.preventDefault();
+    if(pointerHeld){pointerHeld.target[2]=clamp(pointerHeld.target[2]+e.deltaY*.001,.22,.9);}
+    else camera.distance=clamp(camera.distance+e.deltaY*.004,3.1,9.5);
+  },{passive:false});
+  canvas.addEventListener("dblclick",()=>{camera.yaw=-.28;camera.pitch=1.04;camera.distance=4.9;camera.target=[1.35,0,0];});
+  canvas.addEventListener("contextmenu",(e)=>e.preventDefault());
+  window.addEventListener("keydown",(e)=>{
+    if(e.code==="Space"){e.preventDefault();togglePause();}
+    else if(e.key.toLowerCase()==="n")nudge();
+    else if(e.key.toLowerCase()==="r")resetSim();
+    else if(e.key.toLowerCase()==="k")applyTool(sim.tool==="knife"?"hand":"knife");
+    else if(e.key.toLowerCase()==="h")applyTool("hand");
+    else if(e.key==="Escape"&&sim.cut)sim.cut=null;
+  });
+  window.addEventListener("resize",resize);
+  new ResizeObserver(resize).observe(canvas);
+}
+function testHook() {
+  window.__melon={
+    sim,camera,
+    pick:(x,y)=>findPiece([x,y]),
+    planCut:(a,b)=>planCut(a,b),
+    startCut:(a,b)=>startCut(a,b),
+    advance(seconds){let left=Math.max(0,seconds),step=1/60;while(left>0){const dt=Math.min(step,left);simulationStep(dt);if(sim.cut)advanceCut(dt);left-=dt;}for(const p of sim.pieces)refreshBodyMesh(p);updateStats();},
+    pieceStats:()=>sim.pieces.map((p)=>({area:p.area,nodes:p.nodes.length,meanSpeed:p.nodes.reduce((s,n)=>s+Math.hypot(...n.v),0)/p.nodes.length})),
+    reset:resetSim,
+    get ready(){return gpuReady}
+  };
+}
+bindUI();resetSim();testHook();requestAnimationFrame(animate);
+if(!("gpu" in navigator)){showUnavailable("navigator.gpu is not available here. Open this file in a current browser with WebGPU enabled and a compatible graphics device; a 2D substitute is intentionally not used.");}
+else {
+  controls.querySelectorAll("button,input").forEach((el)=>el.disabled=true);
+  setupGpu().then(()=>{
+    statusPill.textContent="WebGPU · live";statusPill.className="status";
+    controls.querySelectorAll("button,input").forEach((el)=>el.disabled=false);
+    knifePose.visible=false;
+    if(reducedMotion){sim.damping=Math.max(sim.damping,.47);$("damping").value=47;$("dampValue").value="47";}
+  }).catch((error)=>{
+    const msg=String(error?.message||error);
+    showUnavailable(msg.includes("WGSL")?`The GPU rejected the specimen shader: ${msg}`:msg);
+    console.error("Melon Jelly Knife WebGPU initialization failed:",error);
+  });
+}
+</script>
+</body>
+</html>
+}
